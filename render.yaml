@@ -1,0 +1,29 @@
+# Render Blueprint – statyczny hosting prototypu (https://render.com/docs/blueprint-spec)
+services:
+  - type: web
+    name: domedron-configurator
+    runtime: static
+    buildCommand: npm ci || npm install; npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /models/*
+        name: Cache-Control
+        value: public, max-age=604800
+      # Pozwala osadzić konfigurator w iframe na stronie klienta.
+      # Po wdrożeniu produkcyjnym zawęź listę do domeny klienta.
+      - path: /*
+        name: Content-Security-Policy
+        value: "frame-ancestors 'self' https://misteriada.com https://*.misteriada.com http://localhost:*"
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Adres e-mail, na który trafiają zapytania (fallback mailto:)
+      - key: VITE_INQUIRY_EMAIL
+        sync: false
+      # Opcjonalny endpoint POST JSON (np. Formspree / własne API)
+      - key: VITE_INQUIRY_ENDPOINT
+        sync: false

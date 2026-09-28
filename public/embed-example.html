@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Przykład osadzenia – konfigurator Domedron</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #1a040a; color: #fbf1d6; }
+      main { max-width: 1280px; margin: 0 auto; padding: 24px 16px; }
+
+      /* ▼▼▼ Ten fragment skopiuj na stronę klienta ▼▼▼ */
+      .domedron-embed {
+        position: relative;
+        width: 100%;
+        height: min(88vh, 860px); /* desktop */
+        min-height: 620px;
+        border: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px -20px rgb(0 0 0 / 0.6);
+      }
+      @media (max-width: 1023px) {
+        /* telefon/tablet: podgląd 3D u góry, panel przewijany pod nim – wewnątrz iframe */
+        .domedron-embed { height: 100svh; min-height: 560px; border-radius: 0; }
+      }
+      .domedron-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+      /* ▲▲▲ */
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Skonfiguruj kopułę</h1>
+      <p>Przykładowa podstrona z osadzonym konfiguratorem.</p>
+
+      <!-- ▼▼▼ Kod do wklejenia (podmień adres src na docelowy) ▼▼▼ -->
+      <div class="domedron-embed">
+        <iframe
+          src="./index.html"
+          title="Konfigurator kopuły geodezyjnej Domedron"
+          loading="lazy"
+          allow="fullscreen; clipboard-write; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+      <script>
+        // Opcjonalnie: odbiór zgłoszenia z konfiguratora (np. do Google Analytics / CRM)
+        window.addEventListener('message', function (e) {
+          if (!e.data || e.data.type !== 'domedron:inquiry') return
+          // Zawsze sprawdzaj pochodzenie wiadomości na produkcji, np.:
+          // if (e.origin !== 'https://domedron-configurator.onrender.com') return
+          console.log('Nowe zapytanie z konfiguratora:', e.data.payload)
+        })
+      </script>
+      <!-- ▲▲▲ -->
+    </main>
+  </body>
+</html>
