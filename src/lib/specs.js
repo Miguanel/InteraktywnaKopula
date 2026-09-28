@@ -3,6 +3,7 @@ import { COVERS, FRAMES, FRAME_FINISHES, FREQUENCIES, PRESETS } from '../config/
 import { ACCESSORIES } from '../config/accessories'
 import { getItem } from '../config/items'
 import { resolvePanel } from '../config/panels'
+import { ATTACH_LAYERS, resolveAttach } from '../config/frameDecor'
 
 const nf = (v, digits = 1) =>
   v.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -55,6 +56,7 @@ export function describeConfig(config) {
   const accessories = ACCESSORIES.filter((a) => config.accessories[a.id]).map((a) => a.name)
   const panels = summarizePanels(config)
   const items = summarizeItems(config)
+  const frameDecor = summarizeFrame(config)
 
   const rows = [
     ['Przeznaczenie', preset?.name ?? 'Indywidualne'],
@@ -66,6 +68,7 @@ export function describeConfig(config) {
     ['Poszycie', cover.name],
     ['Okno panoramiczne', config.panoramicWindow ? 'Tak' : 'Nie'],
     ['Panele indywidualne', panels.length ? panels.map((p) => `${p.name} ×${p.count}`).join(', ') : 'Brak'],
+    ['Na konstrukcji', frameDecor.length ? frameDecor.map((f) => `${f.name} ×${f.count} ${f.unit}`).join(', ') : 'Brak'],
     ['Wyposażenie', accessories.length ? accessories.join(', ') : 'Brak'],
     ['Aranżacja wnętrza', items.length ? items.map((i) => `${i.name} ×${i.count}`).join(', ') : 'Brak'],
   ]
@@ -97,6 +100,21 @@ export function summarizeItems(config) {
   const counts = new Map()
   for (const it of config.items || []) counts.set(it.type, (counts.get(it.type) || 0) + 1)
   return [...counts.entries()].map(([type, count]) => ({ type, count, name: getItem(type)?.name ?? type }))
+}
+
+/** Dekoracje konstrukcji (zliczone wg kodu) */
+export function summarizeFrame(config) {
+  const counts = new Map()
+  for (const layer of ATTACH_LAYERS) {
+    for (const code of Object.values(config.attach?.[layer] || {})) counts.set(code, (counts.get(code) || 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([code, count]) => {
+      const info = resolveAttach(code)
+      const unit = info?.decor.target === 'hub' ? (count === 1 ? 'węzeł' : count < 5 ? 'węzły' : 'węzłów') : count === 1 ? 'belka' : count < 5 ? 'belki' : 'belek'
+      return { code, count, unit, info, name: info?.name ?? code }
+    })
+    .sort((a, b) => b.count - a.count)
 }
 
 export { nf }

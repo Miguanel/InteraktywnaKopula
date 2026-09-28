@@ -9,6 +9,7 @@ import GeodesicDome from './GeodesicDome'
 import Accessories from './Accessories'
 import ScaleFigure from './accessories/ScaleFigure'
 import ItemsLayer from './items/ItemsLayer'
+import FrameDecor from './frame/FrameDecor'
 import { DECK_HEIGHT } from './accessories/Deck'
 
 /**
@@ -24,7 +25,7 @@ export default function DomeScene() {
       const uid = st.view.selectedItem
       if (e.key === 'Escape') {
         if (uid) st.selectItem(null)
-        else if (st.view.editMode === 'paint') st.setEditMode('none')
+        else if (st.view.editMode !== 'none') st.setEditMode('none')
         return
       }
       if (!uid) return
@@ -79,6 +80,7 @@ function SceneContent() {
   const resetToken = useConfigurator((s) => s.view.resetToken)
   const topToken = useConfigurator((s) => s.view.topToken)
   const selectedItem = useConfigurator((s) => s.view.selectedItem)
+  const editMode = useConfigurator((s) => s.view.editMode)
 
   const dome = useMemo(() => buildGeodesicDome(config.frequency), [config.frequency])
   const R = useDampedValue(config.diameter / 2)
@@ -90,8 +92,9 @@ function SceneContent() {
     <DomeContext.Provider value={ctx}>
       <Environment night={night} R={R} />
       <group position={[0, animatedBaseY, 0]}>
-        {/* podczas aranżacji (zaznaczony element) ściany robią się półprzezroczyste */}
-        <GeodesicDome config={config} interior={interior || selectedItem != null} />
+        {/* podczas aranżacji i edycji konstrukcji ściany robią się półprzezroczyste */}
+        <GeodesicDome config={config} interior={interior || selectedItem != null || editMode === 'frame'} />
+        <FrameDecor config={config} />
         <Accessories enabled={config.accessories} />
         <ItemsLayer />
         {showFigure && <ScaleFigure />}

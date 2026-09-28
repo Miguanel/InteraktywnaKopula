@@ -1,9 +1,10 @@
 import { useConfigurator } from '../store/useConfigurator'
 import { COVERS, DIAMETER, FRAMES, FRAME_FINISHES, FREQUENCIES, PRESETS } from '../config/catalog'
 import { ACCESSORIES } from '../config/accessories'
-import { computeSpecs, nf, summarizeItems, summarizePanels } from '../lib/specs'
+import { computeSpecs, nf, summarizeFrame, summarizeItems, summarizePanels } from '../lib/specs'
 import PanelEditor from './PanelEditor'
 import InteriorEditor from './InteriorEditor'
+import FrameEditor from './FrameEditor'
 import { OptionCard, RangeField, Section, Segmented, Swatch, ToggleRow } from './controls'
 import Icon from './icons'
 
@@ -148,7 +149,11 @@ export default function UIOverlay({ onRequestQuote }) {
         <PanelEditor />
       </Section>
 
-      <Section index={5} title="Otoczenie i oświetlenie">
+      <Section index={5} title="Światło i roślinność na konstrukcji">
+        <FrameEditor />
+      </Section>
+
+      <Section index={6} title="Otoczenie i oświetlenie">
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} className="mb-2 last:mb-0">
             <h3 className="mb-1 text-[0.72rem] font-medium tracking-[0.18em] text-gold-500/90 uppercase">{group}</h3>
@@ -167,7 +172,7 @@ export default function UIOverlay({ onRequestQuote }) {
         ))}
       </Section>
 
-      <Section index={6} title="Aranżacja wnętrza">
+      <Section index={7} title="Aranżacja wnętrza">
         {showInteriorHint && (
           <button
             type="button"
@@ -183,7 +188,7 @@ export default function UIOverlay({ onRequestQuote }) {
         <InteriorEditor />
       </Section>
 
-      <Section index={7} title="Podsumowanie">
+      <Section index={8} title="Podsumowanie">
         <Summary config={config} specs={specs} />
       </Section>
 
@@ -211,6 +216,7 @@ function Summary({ config, specs }) {
   const finish = FRAME_FINISHES.find((f) => f.id === config.frameFinish)
   const panels = summarizePanels(config)
   const items = summarizeItems(config)
+  const frameDecor = summarizeFrame(config)
   const rows = [
     ['Średnica', `${nf(config.diameter)} m`],
     ['Siatka', `${freq.label} ${freq.name.toLowerCase()}`],
@@ -235,6 +241,18 @@ function Summary({ config, specs }) {
               {panels.map((p) => (
                 <li key={p.code} className="rounded-full bg-wine-700/70 px-2.5 py-1 text-[0.78rem] text-gold-100/90">
                   {p.name} ×{p.count}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {frameDecor.length > 0 && (
+          <>
+            <p className="mb-1.5 text-[0.9rem] text-gold-100/55">Na konstrukcji</p>
+            <ul className="mb-3 flex flex-wrap gap-1.5">
+              {frameDecor.map((f) => (
+                <li key={f.code} className="rounded-full bg-wine-700/70 px-2.5 py-1 text-[0.78rem] text-gold-100/90">
+                  {f.info?.decor.short}: {f.info?.variant.name} ×{f.count}
                 </li>
               ))}
             </ul>

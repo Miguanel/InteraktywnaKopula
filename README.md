@@ -85,6 +85,26 @@ przykładowe aranżacje i reguły paneli (`items`, `panelRules` w `src/config/ca
 Nowy element to wpis w `ITEMS` (wymiary `radius`/`height`), placeholder w `src/scene/items/placeholders.jsx`
 i jedna linia w mapie `PLACEHOLDERS` w `ItemsLayer.jsx`.
 
+### Światło i roślinność na konstrukcji (belki i węzły)
+
+Sekcja **Światło i roślinność na konstrukcji** działa jak edytor paneli, tylko klient klika belki i węzły:
+
+* **Oświetlenie belkowe LED**: listwa wzdłuż belki od strony wnętrza.
+* **Oświetlenie punktowe**: reflektor na węźle, skierowany w podłogę.
+* **Lampki na sznurku**: girlanda zwisająca między węzłami.
+* **Pnącza**: bluszcz, pnącze kwitnące albo glicynia oplatające belkę.
+* **Wisząca donica**: zawieszona na węźle.
+
+Każdą belkę i każdy węzeł można edytować pojedynczo albo całym poziomem („pierścień”). Jest też Gumka, która usuwa
+dekoracje z belki lub węzła. Światło ma 11 barw: trzy odcienie bieli (2700/4000/6500 K) i kolory RGB. Konfigurację
+przechowuje `config.attach` z warstwami `edgeLight`, `edgePlant`, `hubLight` i `hubPlant`, więc np. lampki i pnącze
+mogą być na tej samej belce. Typy, kolory i gatunki są zdefiniowane w `src/config/frameDecor.js`.
+
+**Prawdziwe światło:** oprawy są emiterami, a `src/scene/frame/FrameLights.jsx` grupuje je (k-means z karą za różnicę
+koloru) do stałej puli `PointLight` i `SpotLight`: 7+5 świateł na desktopie, 4+3 na telefonie. Dzięki temu scena
+jest naprawdę oświetlona w wybranych barwach, a kolejne kliknięcia nie powodują rekompilacji shaderów ani spadków
+płynności.
+
 ### Podmiana placeholderów na modele .glb
 
 1. Wrzuć plik do `public/models/`, np. `public/models/stove.glb`

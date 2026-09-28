@@ -5,7 +5,18 @@ import { ACCESSORY_IDS } from '../config/accessories'
 import { ITEMS, getItem, MAX_ITEMS } from '../config/items'
 import { isValidPanelCode } from '../config/panels'
 import { buildGeodesicDome } from '../lib/geodesic'
-import { clampItemPosition, maxItemDistance, panelsByRule, remapPanels, ringOf } from '../lib/domeMath'
+import {
+  attachByRule,
+  clampItemPosition,
+  maxItemDistance,
+  panelsByRule,
+  remapIndexed,
+  remapPanels,
+  ringOf,
+  ringOfEdges,
+  ringOfHubs,
+} from '../lib/domeMath'
+import { ATTACH_LAYERS, emptyAttach, isValidAttach, resolveAttach } from '../config/frameDecor'
 
 /**
  * GLOBALNY STAN KONFIGURATORA (zustand)
@@ -13,6 +24,7 @@ import { clampItemPosition, maxItemDistance, panelsByRule, remapPanels, ringOf }
  * `config` – to, co klient kupuje (trafia do zapytania ofertowego i do linku):
  *    panels – { [indeks panelu]: kod materiału } – nadpisania poszycia bazowego
  *    items  – [{ uid, type, x, z, rot }] – elementy aranżacji (metry, radiany)
+ *    attach – { edgeLight, edgePlant, hubLight, hubPlant }: { [indeks belki/węzła]: kod } – dekoracje konstrukcji
  * `view`   – ustawienia podglądu i edycji (nie wpływają na ofertę).
  */
 
@@ -45,11 +57,22 @@ function presetPanels(preset, config) {
   return Object.assign({}, ...(preset.panelRules || []).map((r) => panelsByRule(dome, r)))
 }
 
+function presetAttach(preset, config) {
+  const dome = domeFor(config)
+  const out = emptyAttach()
+  for (const rule of preset.frameRules || []) {
+    const layer = resolveAttach(rule.code)?.decor.layer
+    if (layer) Object.assign(out[layer], attachByRule(dome, rule))
+  }
+  return out
+}
+
 function buildPreset(id) {
   const preset = PRESETS.find((p) => p.id === id) ?? PRESETS[0]
   const config = sanitize({ ...structuredClone(preset.config), preset: preset.id, panels: {}, items: [] })
   config.items = presetItems(preset, config)
   config.panels = presetPanels(preset, config)
+  config.attach = presetAttach(preset, config)
   return config
 }
 
@@ -67,6 +90,7 @@ function sanitize(c = {}) {
     accessories: Object.fromEntries(ACCESSORY_IDS.map((id) => [id, Boolean(c.accessories?.[id])])),
     panels: {},
     items: [],
+    attach: emptyAttach(),
   }
   const faceCount = buildGeodesicDome(out.frequency).faces.length
   for (const [k, code] of Object.entries(c.panels || {})) {
@@ -74,6 +98,13 @@ function sanitize(c = {}) {
     if (Number.isInteger(i) && i >= 0 && i < faceCount && isValidPanelCode(code)) out.panels[i] = code
   }
   const dome = domeFor(out)
+  for (const layer of ATTACH_LAYERS) {
+    const max = layer.startsWith('edge') ? dome.edges.length : dome.vertices.length
+    for (const [k, code] of Object.entries(c.attach?.[layer] || {})) {
+      const i = Number(k)
+      if (Number.isInteger(i) && i >= 0 && i < max && isValidAttach(layer, code)) out.attach[layer][i] = code
+    }
+  }
   const R = out.diameter / 2
   for (const it of (c.items || []).slice(0, MAX_ITEMS)) {
     const meta = getItem(it?.type)
@@ -100,6 +131,13 @@ export function encodeConfig(config) {
     w: config.panoramicWindow ? 1 : 0,
     a: ACCESSORY_IDS.filter((id) => config.accessories[id]),
     pm: Object.entries(byCode),
+    at: Object.fromEntries(
+      ATTACH_LAYERS.map((layer) => {
+        const g = {}
+        for (const [i, code] of Object.entries(config.attach[layer])) (g[code] ||= []).push(Number(i))
+        return [layer, Object.entries(g)]
+      }),
+    ),
     it: config.items.map((it) => [
       ITEMS.findIndex((m) => m.id === it.type),
       Math.round(it.x * 100),
@@ -115,7 +153,10 @@ function decodeConfig(str) {
     const c = JSON.parse(decodeURIComponent(atob(str)))
     const panels = {}
     for (const [code, ids] of c.pm || []) for (const i of ids) panels[i] = code
+    const attach = emptyAttach()
+    for (const layer of ATTACH_LAYERS) for (const [code, ids] of c.at?.[layer] || []) for (const i of ids) attach[layer][i] = code
     return sanitize({
+      attach,
       preset: c.p,
       diameter: c.d,
       frequency: c.f,
@@ -170,6 +211,9 @@ export const useConfigurator = create(
         editMode: 'none', // 'none' | 'paint'
         brush: { code: 'decor:lace:neonYellow', tool: 'panel' }, // tool: 'panel' | 'ring'
         hoverFace: null,
+        // edytor konstrukcji: code = kod dekoracji lub 'erase'; tool: 'single' | 'ring'
+        frameBrush: { code: 'beam:warm', tool: 'single' },
+        hoverFrame: null, // { kind: 'edge'|'hub', index }
       },
 
       // --- Presety i parametry bryły
@@ -195,7 +239,13 @@ export const useConfigurator = create(
       setFrequency: (frequency) =>
         set((s) => {
           const panels = remapPanels(s.config.frequency, frequency, s.config.panels)
-          const next = { ...s.config, frequency, panels }
+          const attach = Object.fromEntries(
+            ATTACH_LAYERS.map((l) => [
+              l,
+              remapIndexed(s.config.frequency, frequency, s.config.attach[l], l.startsWith('edge') ? 'edge' : 'hub'),
+            ]),
+          )
+          const next = { ...s.config, frequency, panels, attach }
           const dome = domeFor(next)
           next.items = s.config.items.map((it) => {
             const [x, z] = clampItemPosition(dome, next.diameter / 2, getItem(it.type), it.x, it.z)
@@ -238,8 +288,59 @@ export const useConfigurator = create(
       clearPanels: () => patchConfig({ panels: {} }),
       setBrush: (patch) => set((s) => ({ view: { ...s.view, brush: { ...s.view.brush, ...patch } } })),
       setEditMode: (editMode) =>
-        set((s) => ({ view: { ...s.view, editMode, hoverFace: null, selectedItem: editMode === 'paint' ? null : s.view.selectedItem } })),
+        set((s) => ({
+          view: { ...s.view, editMode, hoverFace: null, hoverFrame: null, selectedItem: editMode === 'none' ? s.view.selectedItem : null },
+        })),
       setHoverFace: (hoverFace) => set((s) => (s.view.hoverFace === hoverFace ? s : { view: { ...s.view, hoverFace } })),
+
+      // --- Dekoracje konstrukcji (belki i węzły)
+      setFrameBrush: (patch) => set((s) => ({ view: { ...s.view, frameBrush: { ...s.view.frameBrush, ...patch } } })),
+      setHoverFrame: (hoverFrame) =>
+        set((s) => {
+          const h = s.view.hoverFrame
+          if (h?.kind === hoverFrame?.kind && h?.index === hoverFrame?.index) return s
+          return { view: { ...s.view, hoverFrame } }
+        }),
+      /** Nakłada dekorację aktualnym pędzlem na belkę/węzeł (lub cały poziom). Gumka czyści obie warstwy. */
+      applyFrame: (kind, index) =>
+        set((s) => {
+          const { code, tool } = s.view.frameBrush
+          const dome = domeFor(s.config)
+          const targets = tool === 'ring' ? (kind === 'edge' ? ringOfEdges(dome, index) : ringOfHubs(dome, index)) : [index]
+          const attach = { ...s.config.attach }
+          if (code === 'erase') {
+            for (const l of ATTACH_LAYERS.filter((l) => l.startsWith(kind))) {
+              attach[l] = { ...attach[l] }
+              for (const i of targets) delete attach[l][i]
+            }
+          } else {
+            const info = resolveAttach(code)
+            if (!info || info.decor.target !== kind) return s
+            const l = info.decor.layer
+            attach[l] = { ...attach[l] }
+            const toggleOff = tool === 'single' && attach[l][index] === code
+            for (const i of targets) {
+              if (toggleOff) delete attach[l][i]
+              else attach[l][i] = code
+            }
+          }
+          return { config: { ...s.config, attach } }
+        }),
+      frameFillAll: () =>
+        set((s) => {
+          const info = resolveAttach(s.view.frameBrush.code)
+          if (!info) return s
+          const dome = domeFor(s.config)
+          const n = info.decor.target === 'edge' ? dome.edges.length : dome.vertices.length
+          const l = info.decor.layer
+          return {
+            config: {
+              ...s.config,
+              attach: { ...s.config.attach, [l]: Object.fromEntries(Array.from({ length: n }, (_, i) => [i, info.code])) },
+            },
+          }
+        }),
+      clearFrame: () => patchConfig({ attach: emptyAttach() }),
 
       // --- Elementy aranżacji
       addItem: (type) => {

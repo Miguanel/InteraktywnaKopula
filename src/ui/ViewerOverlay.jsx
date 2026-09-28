@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useConfigurator, getShareUrl } from '../store/useConfigurator'
 import { computeSpecs, nf } from '../lib/specs'
 import { getItem } from '../config/items'
+import { resolveAttach } from '../config/frameDecor'
 import Icon from './icons'
 
 /** Nakładki na podgląd 3D: narzędzia widoku, wymiary, podpowiedź gestów. */
@@ -12,6 +13,16 @@ export default function ViewerOverlay() {
   const selectedUid = useConfigurator((s) => s.view.selectedItem)
   const editMode = useConfigurator((s) => s.view.editMode)
   const selected = config.items.find((it) => it.uid === selectedUid)
+  const frameBrush = useConfigurator((s) => s.view.frameBrush)
+  const frameTarget = frameBrush.code === 'erase' ? 'both' : resolveAttach(frameBrush.code)?.decor.target
+  const editHint =
+    editMode === 'paint'
+      ? 'Kliknij panel, aby nadać materiał'
+      : frameTarget === 'hub'
+        ? 'Kliknij węzeł konstrukcji, aby dodać'
+        : frameTarget === 'edge'
+          ? 'Kliknij belkę konstrukcji, aby dodać'
+          : 'Kliknij belkę lub węzeł, aby wyczyścić'
   const specs = computeSpecs(config)
   const [hint, setHint] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -93,12 +104,12 @@ export default function ViewerOverlay() {
         <Metric label="A" value={`${nf(specs.floorArea)} m²`} />
       </div>
 
-      {/* tryb edycji paneli */}
-      {editMode === 'paint' && (
+      {/* tryby edycji (panele / konstrukcja) */}
+      {editMode !== 'none' && (
         <div className="pointer-events-auto absolute top-16 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full bg-wine-900/90 py-1.5 pr-1.5 pl-4 text-[0.84rem] whitespace-nowrap text-gold-100 shadow-lg ring-1 ring-gold-500/50 backdrop-blur-md sm:top-4">
           <Icon name="brush" size={16} className="text-gold-300" />
-          <span className="hidden min-[400px]:inline">Kliknij panel, aby nadać materiał</span>
-          <span className="min-[400px]:hidden">Stuknij panel</span>
+          <span className="hidden min-[400px]:inline">{editHint}</span>
+          <span className="min-[400px]:hidden">{editHint.replace('Kliknij', 'Stuknij').split(',')[0]}</span>
           <button
             type="button"
             onClick={() => useConfigurator.getState().setEditMode('none')}

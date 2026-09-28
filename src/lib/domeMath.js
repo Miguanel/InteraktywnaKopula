@@ -112,3 +112,90 @@ export function panelsByRule(dome, rule) {
   })
   return out
 }
+
+// ---------- Belki (krawędzie) i węzły – dekoracje konstrukcji ----------
+
+const midCache = new WeakMap()
+
+/** Środki belek (R=1, względem podłogi) */
+export function edgeMidpoints(dome) {
+  if (midCache.has(dome)) return midCache.get(dome)
+  const out = dome.edges.map(([a, b]) => {
+    const A = dome.vertices[a]
+    const B = dome.vertices[b]
+    return [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2]
+  })
+  midCache.set(dome, out)
+  return out
+}
+
+const levelTol = (dome) => (dome.height / (dome.frequency * 3)) * 0.45
+
+/** Belki na tym samym poziomie (i o podobnym nachyleniu) co belka ei */
+export function ringOfEdges(dome, ei) {
+  const mids = edgeMidpoints(dome)
+  const slope = (i) => {
+    const [a, b] = dome.edges[i]
+    return Math.abs(dome.vertices[a][1] - dome.vertices[b][1]) < 0.02 ? 0 : 1
+  }
+  const y = mids[ei][1]
+  const s = slope(ei)
+  const tol = levelTol(dome)
+  return mids.map((m, i) => (Math.abs(m[1] - y) < tol && slope(i) === s ? i : -1)).filter((i) => i >= 0)
+}
+
+/** Węzły na tym samym poziomie co węzeł vi */
+export function ringOfHubs(dome, vi) {
+  const y = dome.vertices[vi][1]
+  const tol = levelTol(dome)
+  return dome.vertices.map((v, i) => (Math.abs(v[1] - y) < tol ? i : -1)).filter((i) => i >= 0)
+}
+
+/** Przeniesienie mapy {indeks: kod} belek lub węzłów na inną częstotliwość siatki (najbliższy kierunek) */
+export function remapIndexed(fromFreq, toFreq, map, kind) {
+  const entries = Object.entries(map || {})
+  if (!entries.length || fromFreq === toFreq) return map || {}
+  const a = buildGeodesicDome(fromFreq)
+  const b = buildGeodesicDome(toFreq)
+  const pts = (dome) => (kind === 'edge' ? edgeMidpoints(dome) : dome.vertices)
+  const dir = (dome, p) => {
+    const v = [p[0], p[1] - dome.centerY, p[2]]
+    const l = Math.hypot(...v) || 1
+    return v.map((x) => x / l)
+  }
+  const src = entries.map(([i, code]) => ({ d: dir(a, pts(a)[Number(i)]), code }))
+  const out = {}
+  // każdy element starej siatki przenosimy na najbliższy element nowej siatki
+  const bDirs = pts(b).map((p) => dir(b, p))
+  for (const s of src) {
+    let best = 0
+    let bestDot = -2
+    bDirs.forEach((d, i) => {
+      const dot = d[0] * s.d[0] + d[1] * s.d[1] + d[2] * s.d[2]
+      if (dot > bestDot) {
+        bestDot = dot
+        best = i
+      }
+    })
+    out[best] = s.code
+  }
+  return out
+}
+
+/** Reguła presetu: { target: 'edge'|'hub', fromH, toH, every, horizontal, code } */
+export function attachByRule(dome, rule) {
+  const pts = rule.target === 'edge' ? edgeMidpoints(dome) : dome.vertices
+  const out = {}
+  pts.forEach((p, i) => {
+    const relH = p[1] / dome.height
+    if (relH < (rule.fromH ?? 0) || relH > (rule.toH ?? 1)) return
+    if (rule.every && i % rule.every !== 0) return
+    if (rule.target === 'edge' && rule.horizontal != null) {
+      const [a, b] = dome.edges[i]
+      const flat = Math.abs(dome.vertices[a][1] - dome.vertices[b][1]) < 0.02
+      if (flat !== rule.horizontal) return
+    }
+    out[i] = rule.code
+  })
+  return out
+}

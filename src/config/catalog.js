@@ -136,6 +136,7 @@ export const FRAME_FINISHES = [
  *  items      – [typ, odległość od środka (0..1 promienia podłogi), kąt°, obrót° | 'center']
  *               kąt 0° = wejście (+Z), 180° = tył kopuły
  *  panelRules – reguły malowania paneli: { fromH, toH (0..1 wysokości), azimuth: [środek°, ±zakres°], code }
+ *  frameRules – dekoracje konstrukcji: { target: 'edge'|'hub', fromH, toH, every, horizontal, code }
  */
 export const PRESETS = [
   {
@@ -160,6 +161,7 @@ export const PRESETS = [
       ['table', 0.45, 75, 0],
     ],
     panelRules: [],
+    frameRules: [{ target: 'edge', fromH: 0.62, toH: 0.74, code: 'string:warm' }],
   },
   {
     id: 'greenhouse',
@@ -185,6 +187,10 @@ export const PRESETS = [
       ['table', 0.15, 180, 0],
     ],
     panelRules: [],
+    frameRules: [
+      { target: 'edge', fromH: 0, toH: 0.3, horizontal: false, code: 'vine:ivy' },
+      { target: 'hub', fromH: 0.45, toH: 0.75, every: 2, code: 'pot:trailing' },
+    ],
   },
   {
     id: 'event',
@@ -214,6 +220,10 @@ export const PRESETS = [
     ],
     // dolna część ścian w neonowej koronce – jak na realizacjach festiwalowych Domedron
     panelRules: [{ fromH: 0, toH: 0.52, code: 'decor:lace:neonYellow' }],
+    frameRules: [
+      { target: 'edge', fromH: 0.62, toH: 0.74, code: 'beam:magenta' },
+      { target: 'hub', fromH: 0.8, toH: 0.97, code: 'spot:cyan' },
+    ],
   },
 ]
 

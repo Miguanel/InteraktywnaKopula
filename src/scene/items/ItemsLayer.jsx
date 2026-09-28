@@ -75,7 +75,7 @@ export default function ItemsLayer() {
       key={it.uid}
       item={it}
       selected={selected === it.uid}
-      interactive={editMode !== 'paint'}
+      interactive={editMode === 'none'}
       withLight={lit.has(it.uid)}
     />
   ))
