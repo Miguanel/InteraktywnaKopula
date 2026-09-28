@@ -39,25 +39,9 @@ export const ACCESSORIES = [
     id: 'ledInterior',
     name: 'Girlandy LED',
     description: 'Ciepłe, ściemnialne oświetlenie wzdłuż konstrukcji.',
-    group: 'Wnętrze',
+    group: 'Oświetlenie konstrukcji',
     interior: true,
     model: null, // (girlanda generowana proceduralnie – model opcjonalny dla żarówki)
-  },
-  {
-    id: 'stove',
-    name: 'Piecyk z kominem',
-    description: 'Koza z przejściem kominowym przez poszycie – sezon całoroczny.',
-    group: 'Wnętrze',
-    interior: true,
-    model: null, // np. './models/stove.glb'
-  },
-  {
-    id: 'speakers',
-    name: 'System nagłośnienia',
-    description: 'Głośniki podwieszone do konstrukcji.',
-    group: 'Wnętrze',
-    interior: true,
-    model: null, // np. './models/speaker.glb'
   },
 ]
 

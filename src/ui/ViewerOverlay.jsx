@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useConfigurator, getShareUrl } from '../store/useConfigurator'
 import { computeSpecs, nf } from '../lib/specs'
+import { getItem } from '../config/items'
 import Icon from './icons'
 
 /** Nakładki na podgląd 3D: narzędzia widoku, wymiary, podpowiedź gestów. */
 export default function ViewerOverlay() {
   const view = useConfigurator((s) => s.view)
   const config = useConfigurator((s) => s.config)
-  const { setView, resetCamera } = useConfigurator.getState()
+  const { setView, resetCamera, topView } = useConfigurator.getState()
+  const selectedUid = useConfigurator((s) => s.view.selectedItem)
+  const editMode = useConfigurator((s) => s.view.editMode)
+  const selected = config.items.find((it) => it.uid === selectedUid)
   const specs = computeSpecs(config)
   const [hint, setHint] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -37,6 +41,7 @@ export default function ViewerOverlay() {
     { id: 'interior', icon: 'eye', label: 'Podgląd wnętrza', active: view.interior, onClick: () => setView({ interior: !view.interior }) },
     { id: 'rotate', icon: 'rotate', label: 'Automatyczny obrót', active: view.autoRotate, onClick: () => setView({ autoRotate: !view.autoRotate }) },
     { id: 'figure', icon: 'person', label: 'Sylwetka dla skali (175 cm)', active: view.showFigure, onClick: () => setView({ showFigure: !view.showFigure }) },
+    { id: 'top', icon: 'plan', label: 'Widok z góry (plan wnętrza)', onClick: topView },
     { id: 'reset', icon: 'target', label: 'Wyśrodkuj widok', onClick: resetCamera },
     { id: 'share', icon: copied ? 'check' : 'share', label: copied ? 'Skopiowano link' : 'Udostępnij konfigurację', onClick: share },
   ]
@@ -44,7 +49,7 @@ export default function ViewerOverlay() {
   return (
     <div className="pointer-events-none absolute inset-0" onPointerDown={() => setHint(false)}>
       {/* marka */}
-      <div className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-wine-900/75 p-1.5 min-[420px]:pr-3.5 shadow-lg backdrop-blur-md sm:top-4 sm:left-4">
+      <div className="absolute top-3 left-3 hidden items-center gap-2 rounded-full bg-wine-900/75 p-1.5 min-[400px]:flex min-[420px]:pr-3.5 shadow-lg backdrop-blur-md sm:top-4 sm:left-4">
         <img src="./favicon.svg" alt="" className="size-7 rounded-full" />
         <span className="hidden font-serif text-[0.95rem] text-gold-200 min-[420px]:inline">Domedron</span>
         <span className="hidden text-xs text-gold-100/50 sm:inline">· podgląd 3D</span>
@@ -77,14 +82,35 @@ export default function ViewerOverlay() {
         ))}
       </div>
 
-      {/* wymiary */}
-      <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-xl bg-wine-900/75 px-3.5 py-2 text-gold-100 shadow-lg backdrop-blur-md sm:bottom-4 sm:left-4">
+      {/* wymiary (ukryte, gdy aktywny pasek akcji elementu na telefonie) */}
+      <div
+        className={`absolute bottom-3 left-3 items-center gap-3 rounded-xl bg-wine-900/75 px-3.5 py-2 text-gold-100 shadow-lg backdrop-blur-md sm:bottom-4 sm:left-4 ${selected ? 'hidden md:flex' : 'flex'}`}
+      >
         <Metric label="Ø" value={`${nf(config.diameter)} m`} />
         <span className="h-6 w-px bg-wine-600" />
         <Metric label="H" value={`${nf(specs.height, 2)} m`} />
         <span className="h-6 w-px bg-wine-600" />
         <Metric label="A" value={`${nf(specs.floorArea)} m²`} />
       </div>
+
+      {/* tryb edycji paneli */}
+      {editMode === 'paint' && (
+        <div className="pointer-events-auto absolute top-16 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full bg-wine-900/90 py-1.5 pr-1.5 pl-4 text-[0.84rem] whitespace-nowrap text-gold-100 shadow-lg ring-1 ring-gold-500/50 backdrop-blur-md sm:top-4">
+          <Icon name="brush" size={16} className="text-gold-300" />
+          <span className="hidden min-[400px]:inline">Kliknij panel, aby nadać materiał</span>
+          <span className="min-[400px]:hidden">Stuknij panel</span>
+          <button
+            type="button"
+            onClick={() => useConfigurator.getState().setEditMode('none')}
+            className="rounded-full bg-gold-gradient px-3 py-1 font-semibold text-wine-900"
+          >
+            Gotowe
+          </button>
+        </div>
+      )}
+
+      {/* pasek akcji zaznaczonego elementu */}
+      {selected && <ItemActions item={selected} />}
 
       {/* podpowiedź gestów */}
       <div
@@ -93,6 +119,41 @@ export default function ViewerOverlay() {
         <span className="hidden sm:inline">Przeciągnij, aby obrócić · kółko myszy – przybliżenie</span>
         <span className="sm:hidden">Przesuń palcem, aby obrócić · uszczypnij, aby przybliżyć</span>
       </div>
+    </div>
+  )
+}
+
+function ItemActions({ item }) {
+  const meta = getItem(item.type)
+  const { rotateItem, duplicateItem, removeItem, selectItem } = useConfigurator.getState()
+  const step = Math.PI / 12 // 15°
+  const btn =
+    'grid size-10 place-items-center rounded-xl text-gold-200 transition-colors hover:bg-wine-700 active:bg-wine-600'
+  return (
+    <div
+      role="toolbar"
+      aria-label={`Element: ${meta.name}`}
+      className="pointer-events-auto absolute bottom-3 left-1/2 flex max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-0.5 rounded-2xl bg-wine-900/90 p-1 pl-3.5 shadow-lg ring-1 ring-gold-500/40 backdrop-blur-md sm:bottom-4"
+    >
+      <span className="mr-1.5 flex min-w-0 items-center gap-1.5 truncate text-[0.86rem] text-gold-100">
+        <Icon name="move" size={15} className="shrink-0 text-gold-400" />
+        <span className="truncate">{meta.name}</span>
+      </span>
+      <button type="button" className={btn} onClick={() => rotateItem(item.uid, -step)} title="Obróć w lewo (Q)" aria-label="Obróć w lewo">
+        <Icon name="rotLeft" size={18} />
+      </button>
+      <button type="button" className={btn} onClick={() => rotateItem(item.uid, step)} title="Obróć w prawo (E)" aria-label="Obróć w prawo">
+        <Icon name="rotRight" size={18} />
+      </button>
+      <button type="button" className={btn} onClick={() => duplicateItem(item.uid)} title="Powiel" aria-label="Powiel">
+        <Icon name="copy" size={18} />
+      </button>
+      <button type="button" className={btn} onClick={() => removeItem(item.uid)} title="Usuń (Delete)" aria-label="Usuń">
+        <Icon name="trash" size={18} />
+      </button>
+      <button type="button" className={btn} onClick={() => selectItem(null)} title="Zakończ (Esc)" aria-label="Odznacz">
+        <Icon name="check" size={18} />
+      </button>
     </div>
   )
 }

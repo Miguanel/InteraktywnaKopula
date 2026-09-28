@@ -8,14 +8,48 @@ import { DomeContext, useDampedValue } from './domeContext'
 import GeodesicDome from './GeodesicDome'
 import Accessories from './Accessories'
 import ScaleFigure from './accessories/ScaleFigure'
+import ItemsLayer from './items/ItemsLayer'
 import { DECK_HEIGHT } from './accessories/Deck'
 
 /**
  * DOME SCENE – Canvas, oświetlenie, otoczenie i kamera.
  */
 export default function DomeScene() {
+  const down = useRef([0, 0])
+  // skróty klawiszowe dla zaznaczonego elementu: Delete – usuń, R/Q/E – obróć, Esc – odznacz
+  useEffect(() => {
+    const onKey = (e) => {
+      if (/input|textarea|select/i.test(e.target.tagName)) return
+      const st = useConfigurator.getState()
+      const uid = st.view.selectedItem
+      if (e.key === 'Escape') {
+        if (uid) st.selectItem(null)
+        else if (st.view.editMode === 'paint') st.setEditMode('none')
+        return
+      }
+      if (!uid) return
+      if (e.key === 'Delete' || e.key === 'Backspace') st.removeItem(uid)
+      else if (e.key === 'r' || e.key === 'e') st.rotateItem(uid, Math.PI / 12)
+      else if (e.key === 'q') st.rotateItem(uid, -Math.PI / 12)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
+    <div
+      className="h-full w-full"
+      onPointerDownCapture={(e) => {
+        down.current = [e.clientX, e.clientY]
+      }}
+    >
     <Canvas
+      onPointerMissed={(e) => {
+        // kliknięcie w puste miejsce (bez obracania kamerą) odznacza element
+        if (Math.hypot(e.clientX - down.current[0], e.clientY - down.current[1]) < 6) {
+          useConfigurator.getState().selectItem(null)
+        }
+      }}
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, 2]}
       camera={{ position: [8, 4.5, 10], fov: 38, near: 0.1, far: 400 }}
@@ -32,28 +66,37 @@ export default function DomeScene() {
       </Suspense>
       <AdaptiveDpr pixelated={false} />
     </Canvas>
+    </div>
   )
 }
 
 function SceneContent() {
   const config = useConfigurator((s) => s.config)
-  const view = useConfigurator((s) => s.view)
+  const night = useConfigurator((s) => s.view.night)
+  const interior = useConfigurator((s) => s.view.interior)
+  const showFigure = useConfigurator((s) => s.view.showFigure)
+  const autoRotate = useConfigurator((s) => s.view.autoRotate)
+  const resetToken = useConfigurator((s) => s.view.resetToken)
+  const topToken = useConfigurator((s) => s.view.topToken)
+  const selectedItem = useConfigurator((s) => s.view.selectedItem)
 
   const dome = useMemo(() => buildGeodesicDome(config.frequency), [config.frequency])
   const R = useDampedValue(config.diameter / 2)
   const baseY = config.accessories.deck ? DECK_HEIGHT : 0
   const animatedBaseY = useDampedValue(baseY, 10)
-  const ctx = useMemo(() => ({ R, dome, baseY, night: view.night }), [R, dome, baseY, view.night])
+  const ctx = useMemo(() => ({ R, dome, baseY, night }), [R, dome, baseY, night])
 
   return (
     <DomeContext.Provider value={ctx}>
-      <Environment night={view.night} R={R} />
+      <Environment night={night} R={R} />
       <group position={[0, animatedBaseY, 0]}>
-        <GeodesicDome config={config} interior={view.interior} />
+        {/* podczas aranżacji (zaznaczony element) ściany robią się półprzezroczyste */}
+        <GeodesicDome config={config} interior={interior || selectedItem != null} />
         <Accessories enabled={config.accessories} />
-        {view.showFigure && <ScaleFigure />}
+        <ItemsLayer />
+        {showFigure && <ScaleFigure />}
       </group>
-      <CameraRig R={R} height={dome.height * R + animatedBaseY} autoRotate={view.autoRotate} resetToken={view.resetToken} />
+      <CameraRig R={R} height={dome.height * R + animatedBaseY} autoRotate={autoRotate} resetToken={resetToken} topToken={topToken} />
     </DomeContext.Provider>
   )
 }
@@ -114,7 +157,7 @@ const DEFAULT_DIR = new THREE.Vector3(0.55, 0.32, 1).normalize()
  * Kamera: OrbitControls + automatyczne "dopasowanie kadru" przy zmianie średnicy
  * (utrzymuje proporcje obrazu) oraz płynny reset widoku.
  */
-function CameraRig({ R, height, autoRotate, resetToken }) {
+function CameraRig({ R, height, autoRotate, resetToken, topToken }) {
   const controls = useRef()
   const { camera, size } = useThree()
   const prevR = useRef(R)
@@ -145,6 +188,13 @@ function CameraRig({ R, height, autoRotate, resetToken }) {
     resetTarget.current = pos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetToken])
+
+  // widok z góry (plan) – wygodny do aranżacji wnętrza
+  useEffect(() => {
+    if (!topToken) return
+    resetTarget.current = new THREE.Vector3(0, fitDistance(R) * 1.02 + height, 0.02)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topToken])
 
   useFrame((_, dt) => {
     const c = controls.current
@@ -179,7 +229,7 @@ function CameraRig({ R, height, autoRotate, resetToken }) {
       enablePan={false}
       autoRotate={autoRotate}
       autoRotateSpeed={0.7}
-      minPolarAngle={0.15}
+      minPolarAngle={0}
       maxPolarAngle={Math.PI / 2 - 0.04}
       onStart={() => (resetTarget.current = null)}
     />

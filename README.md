@@ -22,25 +22,28 @@ npm run preview    # podgląd buildu
 ```
 src/
 ├─ ConfiguratorApp.jsx        # layout (desktop: 3D + panel po prawej, mobile: 3D u góry, panel pod spodem)
-├─ store/useConfigurator.js   # globalny stan (zustand) + link do konfiguracji (#c=…)
+├─ store/useConfigurator.js   # globalny stan (zustand): konfiguracja, panele, elementy, link #c=…
 ├─ config/
-│  ├─ catalog.js              # średnice, siatki 2V/3V/4V, konstrukcje, poszycia, presety przeznaczenia
-│  └─ accessories.js          # rejestr akcesoriów (nazwa, opis, ścieżka .glb)
+│  ├─ catalog.js              # średnice, siatki, konstrukcje, wykończenia, poszycia, presety
+│  ├─ accessories.js          # elementy otoczenia (podest, oświetlenie, rośliny, girlandy)
+│  ├─ items.js                # katalog przesuwanych elementów wnętrza
+│  └─ panels.js               # materiały pojedynczych paneli (szkło, otwór, tkaniny)
 ├─ lib/
-│  ├─ geodesic.js             # generator topologii kopuły (czysty JS, bez three.js)
-│  └─ specs.js                # wysokość, powierzchnia, kubatura, typy prętów, tekst podsumowania
+│  ├─ geodesic.js             # generator topologii kopuły (czysty JS)
+│  ├─ domeMath.js             # granice wnętrza, pierścienie paneli, przenoszenie paneli między siatkami
+│  ├─ patterns.js             # proceduralne grafiki tkanin dekoracyjnych
+│  └─ specs.js                # wymiary, typy prętów, podsumowanie do zapytania
 ├─ scene/
-│  ├─ DomeScene.jsx           # Canvas, światła, niebo dzień/noc, grunt, kamera (OrbitControls)
-│  ├─ GeodesicDome.jsx        # pręty i węzły (InstancedMesh), panele, okno panoramiczne, przedsionek
-│  ├─ Accessories.jsx         # mapowanie id akcesorium → komponent 3D
-│  ├─ domeContext.js          # R, topologia, pomocnicze funkcje wysokości powierzchni
-│  └─ accessories/
-│     ├─ ModelSlot.jsx        # 🔌 punkt podmiany placeholder → .glb
-│     ├─ Deck.jsx, OutdoorLights.jsx, Plants.jsx, LedInterior.jsx, Stove.jsx, Speakers.jsx
-│     └─ ScaleFigure.jsx      # sylwetka 175 cm dla skali
+│  ├─ DomeScene.jsx           # Canvas, światła, dzień/noc, kamera (reset, widok z góry), skróty klawiszowe
+│  ├─ GeodesicDome.jsx        # pręty, węzły, panele wg materiału, edytor paneli (picker), przedsionek
+│  ├─ Accessories.jsx         # elementy otoczenia
+│  ├─ accessories/            # podest, lampy, rośliny, girlandy, ModelSlot (🔌 .glb), sylwetka
+│  └─ items/                  # ItemsLayer (przeciąganie, zaznaczenie, komin) + placeholders
 └─ ui/
    ├─ UIOverlay.jsx           # panel konfiguracji + podsumowanie + CTA
-   ├─ ViewerOverlay.jsx       # narzędzia podglądu (noc, wnętrze, obrót, skala, reset, udostępnij)
+   ├─ PanelEditor.jsx         # paleta materiałów i tkanin, tryb malowania
+   ├─ InteriorEditor.jsx      # katalog i lista elementów wnętrza
+   ├─ ViewerOverlay.jsx       # narzędzia podglądu, pasek akcji zaznaczonego elementu
    ├─ InquiryModal.jsx        # formularz zapytania ofertowego
    └─ controls.jsx, icons.jsx
 ```
@@ -52,11 +55,42 @@ src/
 (2V: 26 węzłów / 65 prętów, 3V 5/8: 61 / 165, 4V: 91 / 250). Pręty i węzły mają stałą grubość
 w metrach, więc przy zmianie średnicy przeliczane są tylko macierze instancji.
 
+### Edytor paneli (materiały pojedynczych trójkątów)
+
+W sekcji **Ściany i panele** klient wybiera poszycie bazowe, w tym wariant „Bez poszycia – sam szkielet”.
+Po kliknięciu **Projektuj panele** może malować trójkąty na modelu: pojedynczo albo całymi pierścieniami.
+Do wyboru są materiały: inne poszycie, przeszklenie, otwór oraz **tkaniny dekoracyjne**.
+
+* Kody materiałów paneli opisuje `src/config/panels.js`.
+* Grafiki tkanin są generowane proceduralnie w `src/lib/patterns.js`: organiczna koronka, portale, mandala,
+  plaster miodu, fale, kręgi i słońce, w 8 kolorach fluorescencyjnych. Nowy wzór to kolejna funkcja `draw…`
+  i wpis w `DECOR_PATTERNS`. `mapping: 'continuous'` oznacza wzór przechodzący przez panele,
+  a `'panel'` osobny motyw w każdym trójkącie.
+* Tkaniny świecą w widoku nocnym, a mocniej, gdy we wnętrzu stoi naświetlacz UV.
+* Przy zmianie siatki (2V/3V/4V) materiały są przenoszone na najbliższe panele nowej siatki.
+
+### Aranżacja wnętrza (przesuwane elementy)
+
+Katalog elementów jest w `src/config/items.js`, a komponenty 3D w `src/scene/items/`. Klient:
+
+* dodaje element z katalogu (trafia w wolne miejsce),
+* przeciąga go po podłodze. Pozycja jest przycinana do wnętrza kopuły, z uwzględnieniem wysokości elementu
+  i spadku ściany. Lampy podwieszane przesuwają się na wysokości zawieszenia.
+* obraca go, powiela lub usuwa (pasek akcji w podglądzie; skróty Q/E, Delete, Esc).
+
+Podczas aranżacji ściany stają się półprzezroczyste. Przycisk **Widok z góry** pokazuje plan wnętrza.
+Przy zmianie średnicy pozycje elementów skalują się proporcjonalnie. Presety przeznaczenia zawierają
+przykładowe aranżacje i reguły paneli (`items`, `panelRules` w `src/config/catalog.js`).
+
+Nowy element to wpis w `ITEMS` (wymiary `radius`/`height`), placeholder w `src/scene/items/placeholders.jsx`
+i jedna linia w mapie `PLACEHOLDERS` w `ItemsLayer.jsx`.
+
 ### Podmiana placeholderów na modele .glb
 
 1. Wrzuć plik do `public/models/`, np. `public/models/stove.glb`
    (jednostki: metry, oś Y w górę, pivot na styku z podłożem).
-2. W `src/config/accessories.js` ustaw `model: './models/stove.glb'`.
+2. W `src/config/accessories.js` (elementy otoczenia) lub `src/config/items.js` (elementy wnętrza)
+   ustaw `model: './models/stove.glb'`.
 
 Tyle wystarczy. `ModelSlot` sam załaduje model przez `useGLTF` (z `Suspense`, a do czasu
 załadowania wyświetli placeholder) i zachowa pozycjonowanie liczone przez komponent akcesorium.

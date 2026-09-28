@@ -1,7 +1,9 @@
 import { useConfigurator } from '../store/useConfigurator'
-import { COVERS, DIAMETER, FRAMES, FREQUENCIES, PRESETS } from '../config/catalog'
+import { COVERS, DIAMETER, FRAMES, FRAME_FINISHES, FREQUENCIES, PRESETS } from '../config/catalog'
 import { ACCESSORIES } from '../config/accessories'
-import { computeSpecs, nf } from '../lib/specs'
+import { computeSpecs, nf, summarizeItems, summarizePanels } from '../lib/specs'
+import PanelEditor from './PanelEditor'
+import InteriorEditor from './InteriorEditor'
 import { OptionCard, RangeField, Section, Segmented, Swatch, ToggleRow } from './controls'
 import Icon from './icons'
 
@@ -10,14 +12,15 @@ import Icon from './icons'
  */
 export default function UIOverlay({ onRequestQuote }) {
   const config = useConfigurator((s) => s.config)
-  const interiorView = useConfigurator((s) => s.view.interior)
+  const interiorView = useConfigurator((s) => s.view.interior || s.view.selectedItem != null)
   const a = useConfigurator.getState()
   const specs = computeSpecs(config)
   const cover = COVERS.find((c) => c.id === config.cover)
   const freq = FREQUENCIES.find((f) => f.id === config.frequency)
   const freqTooSparse = config.diameter > freq.recommendedMax
-  const hasInterior = ACCESSORIES.some((x) => x.interior && config.accessories[x.id])
+  const hasInterior = config.items.length > 0 || ACCESSORIES.some((x) => x.interior && config.accessories[x.id])
   const showInteriorHint = hasInterior && !cover.transparent && !interiorView
+  const finish = FRAME_FINISHES.find((f) => f.id === config.frameFinish)
 
   const groups = ACCESSORIES.reduce((acc, item) => {
     ;(acc[item.group] ||= []).push(item)
@@ -114,26 +117,38 @@ export default function UIOverlay({ onRequestQuote }) {
             />
           ))}
         </div>
+        <div className="mt-4 mb-2 flex items-baseline justify-between">
+          <span className="text-sm text-gold-100/70">Wykończenie prętów i węzłów</span>
+          <span className="text-sm text-gold-300">{finish?.name}</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {FRAME_FINISHES.map((f) => (
+            <Swatch key={f.id} selected={config.frameFinish === f.id} onClick={() => a.setFrameFinish(f.id)} swatch={f.swatch} name={f.name} small />
+          ))}
+        </div>
       </Section>
 
-      <Section index={4} title="Poszycie" aside={<span className="text-sm text-gold-300">{cover.name}</span>}>
+      <Section index={4} title="Ściany i panele" aside={<span className="text-right text-sm text-gold-300">{cover.name}</span>}>
         <div className="flex flex-wrap gap-3.5">
           {COVERS.map((c) => (
             <Swatch key={c.id} selected={config.cover === c.id} onClick={() => a.setCover(c.id)} swatch={c.swatch} name={c.name} />
           ))}
         </div>
         <p className="mt-2.5 text-[0.82rem] text-gold-100/55">{cover.description}</p>
-        <div className="-mx-3 mt-3">
-          <ToggleRow
-            checked={config.panoramicWindow}
-            onChange={() => a.setPanoramicWindow(!config.panoramicWindow)}
-            title="Okno panoramiczne"
-            description="Przeszklony sektor ścian z widokiem na krajobraz."
-          />
-        </div>
+        {!cover.skeleton && (
+          <div className="-mx-3 mt-3">
+            <ToggleRow
+              checked={config.panoramicWindow}
+              onChange={() => a.setPanoramicWindow(!config.panoramicWindow)}
+              title="Okno panoramiczne"
+              description="Przeszklony sektor ścian z widokiem na krajobraz."
+            />
+          </div>
+        )}
+        <PanelEditor />
       </Section>
 
-      <Section index={5} title="Wyposażenie">
+      <Section index={5} title="Otoczenie i oświetlenie">
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} className="mb-2 last:mb-0">
             <h3 className="mb-1 text-[0.72rem] font-medium tracking-[0.18em] text-gold-500/90 uppercase">{group}</h3>
@@ -150,11 +165,14 @@ export default function UIOverlay({ onRequestQuote }) {
             </div>
           </div>
         ))}
+      </Section>
+
+      <Section index={6} title="Aranżacja wnętrza">
         {showInteriorHint && (
           <button
             type="button"
             onClick={() => a.setView({ interior: true })}
-            className="mt-2 flex w-full items-center gap-2 rounded-lg border border-gold-600/40 bg-gold-400/5 px-3 py-2 text-left text-[0.83rem] text-gold-200 transition-colors hover:bg-gold-400/10"
+            className="mb-3 flex w-full items-center gap-2 rounded-lg border border-gold-600/40 bg-gold-400/5 px-3 py-2 text-left text-[0.83rem] text-gold-200 transition-colors hover:bg-gold-400/10"
           >
             <Icon name="eye" size={16} />
             <span>
@@ -162,9 +180,10 @@ export default function UIOverlay({ onRequestQuote }) {
             </span>
           </button>
         )}
+        <InteriorEditor />
       </Section>
 
-      <Section index={6} title="Podsumowanie">
+      <Section index={7} title="Podsumowanie">
         <Summary config={config} specs={specs} />
       </Section>
 
@@ -189,11 +208,14 @@ function Summary({ config, specs }) {
   const cover = COVERS.find((c) => c.id === config.cover)
   const freq = FREQUENCIES.find((f) => f.id === config.frequency)
   const acc = ACCESSORIES.filter((x) => config.accessories[x.id])
+  const finish = FRAME_FINISHES.find((f) => f.id === config.frameFinish)
+  const panels = summarizePanels(config)
+  const items = summarizeItems(config)
   const rows = [
     ['Średnica', `${nf(config.diameter)} m`],
     ['Siatka', `${freq.label} ${freq.name.toLowerCase()}`],
-    ['Konstrukcja', frame.name],
-    ['Poszycie', cover.name + (config.panoramicWindow ? ' + okno panoramiczne' : '')],
+    ['Konstrukcja', frame.name + (finish && finish.id !== 'natural' ? `, ${finish.name.toLowerCase()}` : '')],
+    ['Poszycie', cover.name + (config.panoramicWindow && !cover.skeleton ? ' + okno panoramiczne' : '')],
   ]
   return (
     <div className="rounded-xl border border-wine-600/70 bg-wine-950/40 p-4">
@@ -206,7 +228,31 @@ function Summary({ config, specs }) {
         ))}
       </dl>
       <div className="mt-3 border-t border-wine-700/70 pt-3">
-        <p className="mb-1.5 text-[0.9rem] text-gold-100/55">Wyposażenie</p>
+        {panels.length > 0 && (
+          <>
+            <p className="mb-1.5 text-[0.9rem] text-gold-100/55">Panele indywidualne</p>
+            <ul className="mb-3 flex flex-wrap gap-1.5">
+              {panels.map((p) => (
+                <li key={p.code} className="rounded-full bg-wine-700/70 px-2.5 py-1 text-[0.78rem] text-gold-100/90">
+                  {p.name} ×{p.count}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {items.length > 0 && (
+          <>
+            <p className="mb-1.5 text-[0.9rem] text-gold-100/55">Aranżacja wnętrza</p>
+            <ul className="mb-3 flex flex-wrap gap-1.5">
+              {items.map((i) => (
+                <li key={i.type} className="rounded-full bg-wine-700/70 px-2.5 py-1 text-[0.78rem] text-gold-100/90">
+                  {i.name} ×{i.count}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <p className="mb-1.5 text-[0.9rem] text-gold-100/55">Otoczenie i oświetlenie</p>
         {acc.length ? (
           <ul className="flex flex-wrap gap-1.5">
             {acc.map((x) => (

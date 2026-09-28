@@ -1,6 +1,8 @@
 import { buildGeodesicDome } from './geodesic'
-import { COVERS, FRAMES, FREQUENCIES, PRESETS } from '../config/catalog'
+import { COVERS, FRAMES, FRAME_FINISHES, FREQUENCIES, PRESETS } from '../config/catalog'
 import { ACCESSORIES } from '../config/accessories'
+import { getItem } from '../config/items'
+import { resolvePanel } from '../config/panels'
 
 const nf = (v, digits = 1) =>
   v.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -49,7 +51,10 @@ export function describeConfig(config) {
   const freq = FREQUENCIES.find((f) => f.id === config.frequency)
   const frame = FRAMES.find((f) => f.id === config.frame)
   const cover = COVERS.find((c) => c.id === config.cover)
+  const finish = FRAME_FINISHES.find((f) => f.id === config.frameFinish)
   const accessories = ACCESSORIES.filter((a) => config.accessories[a.id]).map((a) => a.name)
+  const panels = summarizePanels(config)
+  const items = summarizeItems(config)
 
   const rows = [
     ['Przeznaczenie', preset?.name ?? 'Indywidualne'],
@@ -57,10 +62,12 @@ export function describeConfig(config) {
     ['Wysokość', `${nf(specs.height, 2)} m`],
     ['Pow. zabudowy', `${nf(specs.floorArea)} m²`],
     ['Siatka', `${freq.label} – ${freq.name}`],
-    ['Konstrukcja', frame.name],
+    ['Konstrukcja', `${frame.name}${finish && finish.id !== 'natural' ? `, ${finish.name.toLowerCase()}` : ''}`],
     ['Poszycie', cover.name],
     ['Okno panoramiczne', config.panoramicWindow ? 'Tak' : 'Nie'],
+    ['Panele indywidualne', panels.length ? panels.map((p) => `${p.name} ×${p.count}`).join(', ') : 'Brak'],
     ['Wyposażenie', accessories.length ? accessories.join(', ') : 'Brak'],
+    ['Aranżacja wnętrza', items.length ? items.map((i) => `${i.name} ×${i.count}`).join(', ') : 'Brak'],
   ]
 
   const text = [
@@ -74,6 +81,22 @@ export function describeConfig(config) {
   ].join('\n')
 
   return { rows, text, specs }
+}
+
+/** Panele z indywidualnym materiałem (zliczone) */
+export function summarizePanels(config) {
+  const counts = new Map()
+  for (const code of Object.values(config.panels || {})) counts.set(code, (counts.get(code) || 0) + 1)
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, count, name: resolvePanel(code)?.name ?? code, info: resolvePanel(code) }))
+    .sort((a, b) => b.count - a.count)
+}
+
+/** Elementy aranżacji (zliczone wg typu) */
+export function summarizeItems(config) {
+  const counts = new Map()
+  for (const it of config.items || []) counts.set(it.type, (counts.get(it.type) || 0) + 1)
+  return [...counts.entries()].map(([type, count]) => ({ type, count, name: getItem(type)?.name ?? type }))
 }
 
 export { nf }

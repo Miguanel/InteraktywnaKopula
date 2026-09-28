@@ -149,7 +149,7 @@ export function ToggleRow({ checked, onChange, title, description, badge }) {
 }
 
 /** Próbnik koloru poszycia */
-export function Swatch({ selected, onClick, swatch, name }) {
+export function Swatch({ selected, onClick, swatch, name, small = false }) {
   return (
     <button
       type="button"
@@ -161,7 +161,7 @@ export function Swatch({ selected, onClick, swatch, name }) {
     >
       <span
         className={[
-          'block size-12 rounded-full border-2 transition-all duration-200',
+          `block ${small ? 'size-9' : 'size-12'} rounded-full border-2 transition-all duration-200`,
           selected ? 'scale-105 border-gold-300 ring-2 ring-gold-400/40 ring-offset-2 ring-offset-wine-900' : 'border-wine-500 group-hover:border-gold-600',
         ].join(' ')}
         style={{ background: swatch }}

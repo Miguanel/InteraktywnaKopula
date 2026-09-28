@@ -64,7 +64,7 @@ export const FRAMES = [
   },
 ]
 
-/** Poszycie */
+/** Poszycie bazowe (materiał domyślny wszystkich paneli) */
 export const COVERS = [
   {
     id: 'greenhouse',
@@ -106,11 +106,36 @@ export const COVERS = [
     roughness: 0.7,
     transparent: false,
   },
+  {
+    id: 'none',
+    name: 'Bez poszycia – sam szkielet',
+    description: 'Sama konstrukcja – np. pod własne tkaniny dekoracyjne lub jako pergola.',
+    swatch:
+      'repeating-linear-gradient(135deg, transparent 0 7px, #a9adb3 7px 9px), repeating-linear-gradient(45deg, transparent 0 7px, #a9adb3 7px 9px), #2a0810',
+    color: '#ffffff',
+    opacity: 0,
+    roughness: 1,
+    transparent: true,
+    skeleton: true,
+  },
+]
+
+/** Wykończenie konstrukcji (malowanie proszkowe) */
+export const FRAME_FINISHES = [
+  { id: 'natural', name: 'Surowe', swatch: 'linear-gradient(135deg,#d9dde1,#8d949a)', color: null },
+  { id: 'black', name: 'Czarny mat', swatch: '#1f1f22', color: '#232326', metalness: 0.3, roughness: 0.55 },
+  { id: 'anthracite', name: 'Antracyt', swatch: '#3d4147', color: '#3d4147', metalness: 0.4, roughness: 0.5 },
+  { id: 'white', name: 'Biały', swatch: '#efede7', color: '#eceae3', metalness: 0.15, roughness: 0.5 },
+  { id: 'gold', name: 'Złoty', swatch: 'linear-gradient(135deg,#f6e2a8,#b98a39)', color: '#c9a24a', metalness: 0.85, roughness: 0.3 },
 ]
 
 /**
  * Przeznaczenie – "presety" ustawiające sensowne wartości startowe.
  * Klient może później dowolnie zmieniać poszczególne opcje.
+ *
+ *  items      – [typ, odległość od środka (0..1 promienia podłogi), kąt°, obrót° | 'center']
+ *               kąt 0° = wejście (+Z), 180° = tył kopuły
+ *  panelRules – reguły malowania paneli: { fromH, toH (0..1 wysokości), azimuth: [środek°, ±zakres°], code }
  */
 export const PRESETS = [
   {
@@ -122,10 +147,19 @@ export const PRESETS = [
       diameter: 6,
       frequency: 3,
       frame: 'steel',
+      frameFinish: 'natural',
       cover: 'pvc-white',
       panoramicWindow: true,
-      accessories: { deck: true, ledInterior: true, stove: true, outdoorLights: true, plants: true, speakers: false },
+      accessories: { deck: true, ledInterior: true, outdoorLights: true, plants: true },
     },
+    items: [
+      ['bed', 0.42, 180, 0],
+      ['rug', 0.12, 0, 0],
+      ['stove', 0.62, -125, 'center'],
+      ['floorLamp', 0.7, 145, 0],
+      ['table', 0.45, 75, 0],
+    ],
+    panelRules: [],
   },
   {
     id: 'greenhouse',
@@ -136,10 +170,21 @@ export const PRESETS = [
       diameter: 6,
       frequency: 3,
       frame: 'aluminium',
+      frameFinish: 'natural',
       cover: 'greenhouse',
       panoramicWindow: false,
-      accessories: { deck: false, ledInterior: false, stove: false, outdoorLights: false, plants: true, speakers: false },
+      accessories: { deck: false, ledInterior: false, outdoorLights: false, plants: true },
     },
+    items: [
+      ['plantPot', 0.66, 70, 0],
+      ['plantPot', 0.66, 110, 0],
+      ['plantPot', 0.66, 160, 0],
+      ['plantPot', 0.66, 200, 0],
+      ['plantPot', 0.66, 250, 0],
+      ['plantPot', 0.66, 290, 0],
+      ['table', 0.15, 180, 0],
+    ],
+    panelRules: [],
   },
   {
     id: 'event',
@@ -150,10 +195,25 @@ export const PRESETS = [
       diameter: 10,
       frequency: 4,
       frame: 'aluminium',
+      frameFinish: 'natural',
       cover: 'pvc-white',
       panoramicWindow: false,
-      accessories: { deck: false, ledInterior: true, stove: false, outdoorLights: true, plants: false, speakers: true },
+      accessories: { deck: false, ledInterior: true, outdoorLights: true, plants: false },
     },
+    items: [
+      ['speaker', 0.6, 150, 'center'],
+      ['speaker', 0.6, -150, 'center'],
+      ['subwoofer', 0.62, 180, 'center'],
+      ['uvLamp', 0.72, 95, 'center'],
+      ['uvLamp', 0.72, -95, 'center'],
+      ['beanbag', 0.38, 35, 'center'],
+      ['beanbag', 0.4, 100, 'center'],
+      ['beanbag', 0.4, -100, 'center'],
+      ['beanbag', 0.38, -35, 'center'],
+      ['ledBar', 0.25, 180, 90],
+    ],
+    // dolna część ścian w neonowej koronce – jak na realizacjach festiwalowych Domedron
+    panelRules: [{ fromH: 0, toH: 0.52, code: 'decor:lace:neonYellow' }],
   },
 ]
 

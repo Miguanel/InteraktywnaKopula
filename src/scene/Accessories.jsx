@@ -3,8 +3,6 @@ import Deck from './accessories/Deck'
 import OutdoorLights from './accessories/OutdoorLights'
 import Plants from './accessories/Plants'
 import LedInterior from './accessories/LedInterior'
-import Stove from './accessories/Stove'
-import Speakers from './accessories/Speakers'
 
 /**
  * ACCESSORIES – mapowanie id → komponent 3D.
@@ -16,8 +14,6 @@ const COMPONENTS = {
   outdoorLights: OutdoorLights,
   plants: Plants,
   ledInterior: LedInterior,
-  stove: Stove,
-  speakers: Speakers,
 }
 
 export default function Accessories({ enabled }) {

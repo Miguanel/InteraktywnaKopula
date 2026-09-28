@@ -35,6 +35,10 @@ export default function InquiryModal({ open, onClose }) {
     const { text, rows } = describeConfig(config)
     const shareUrl = getShareUrl(config)
     const payload = {
+      // pola na najwyższym poziomie – Formspree używa `email` jako adresu "Odpowiedz do"
+      name: contact.name,
+      email: contact.email,
+      _subject: `Zapytanie ofertowe – kopuła ${config.diameter} m`,
       contact,
       configuration: config,
       summary: Object.fromEntries(rows),

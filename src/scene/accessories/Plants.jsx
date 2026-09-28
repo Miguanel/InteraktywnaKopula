@@ -32,7 +32,7 @@ export default function Plants({ meta }) {
   )
 }
 
-function PlantPlaceholder({ variant }) {
+export function PlantPlaceholder({ variant }) {
   return (
     <group>
       {/* donica */}
