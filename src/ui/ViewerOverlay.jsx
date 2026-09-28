@@ -4,6 +4,7 @@ import { computeSpecs, nf } from '../lib/specs'
 import { getItem } from '../config/items'
 import { resolveAttach } from '../config/frameDecor'
 import Icon from './icons'
+import { HistoryControls, UndoToast } from './ResetControl'
 
 /** Nakładki na podgląd 3D: narzędzia widoku, wymiary, podpowiedź gestów. */
 export default function ViewerOverlay() {
@@ -59,11 +60,16 @@ export default function ViewerOverlay() {
 
   return (
     <div className="pointer-events-none absolute inset-0" onPointerDown={() => setHint(false)}>
-      {/* marka */}
-      <div className="absolute top-3 left-3 hidden items-center gap-2 rounded-full bg-wine-900/75 p-1.5 min-[400px]:flex min-[420px]:pr-3.5 shadow-lg backdrop-blur-md sm:top-4 sm:left-4">
+      {/* marka + cofnij/ponów */}
+      <div
+        className={`absolute right-3 bottom-3 flex-col items-start gap-2 sm:top-4 sm:right-auto sm:bottom-auto sm:left-4 ${selected ? 'hidden sm:flex' : 'flex'}`}
+      >
+        <div className="hidden items-center gap-2 rounded-full bg-wine-900/75 p-1.5 shadow-lg backdrop-blur-md min-[420px]:pr-3.5 lg:flex">
         <img src="./favicon.svg" alt="" className="size-7 rounded-full" />
         <span className="hidden font-serif text-[0.95rem] text-gold-200 min-[420px]:inline">Domedron</span>
-        <span className="hidden text-xs text-gold-100/50 sm:inline">· podgląd 3D</span>
+          <span className="hidden text-xs text-gold-100/50 sm:inline">· podgląd 3D</span>
+        </div>
+        <HistoryControls className="pointer-events-auto" />
       </div>
 
       {/* narzędzia widoku */}
@@ -100,8 +106,10 @@ export default function ViewerOverlay() {
         <Metric label="Ø" value={`${nf(config.diameter)} m`} />
         <span className="h-6 w-px bg-wine-600" />
         <Metric label="H" value={`${nf(specs.height, 2)} m`} />
-        <span className="h-6 w-px bg-wine-600" />
-        <Metric label="A" value={`${nf(specs.floorArea)} m²`} />
+        <span className="hidden h-6 w-px bg-wine-600 min-[420px]:block" />
+        <span className="hidden min-[420px]:flex">
+          <Metric label="A" value={`${nf(specs.floorArea)} m²`} />
+        </span>
       </div>
 
       {/* tryby edycji (panele / konstrukcja) */}
@@ -119,6 +127,8 @@ export default function ViewerOverlay() {
           </button>
         </div>
       )}
+
+      <UndoToast />
 
       {/* pasek akcji zaznaczonego elementu */}
       {selected && <ItemActions item={selected} />}

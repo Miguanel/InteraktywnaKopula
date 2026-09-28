@@ -5,6 +5,7 @@ import { computeSpecs, nf, summarizeFrame, summarizeItems, summarizePanels } fro
 import PanelEditor from './PanelEditor'
 import InteriorEditor from './InteriorEditor'
 import FrameEditor from './FrameEditor'
+import { ResetButton } from './ResetControl'
 import { OptionCard, RangeField, Section, Segmented, Swatch, ToggleRow } from './controls'
 import Icon from './icons'
 
@@ -31,7 +32,10 @@ export default function UIOverlay({ onRequestQuote }) {
   return (
     <div className="flex min-h-full flex-col">
       <header className="px-5 pt-6 pb-5 sm:px-6">
-        <p className="text-[0.72rem] font-medium tracking-[0.22em] text-gold-500 uppercase">Domedron · pracownia kopuł</p>
+        <div className="flex flex-wrap items-start justify-between gap-x-3">
+          <p className="pt-1.5 text-[0.72rem] font-medium tracking-[0.22em] text-gold-500 uppercase">Domedron · pracownia kopuł</p>
+          <ResetButton />
+        </div>
         <h1 className="mt-1.5 font-serif text-[1.85rem] leading-[1.1] font-medium text-gold-gradient">Skonfiguruj swoją kopułę</h1>
         <p className="mt-2 text-[0.92rem] leading-relaxed text-gold-100/65">
           Każda zmiana od razu pojawia się na modelu 3D. Gdy konfiguracja będzie gotowa, wyślij nam zapytanie –

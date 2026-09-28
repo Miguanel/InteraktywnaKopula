@@ -192,6 +192,11 @@ export function getShareUrl(config) {
 }
 
 // ---------- Store ----------
+const HISTORY_LIMIT = 80
+const COALESCE_MS = 450 // ciągłe zmiany (przeciąganie, suwak) tworzą jeden krok historii
+let timeTravel = false
+let lastChange = 0
+
 export const useConfigurator = create(
   subscribeWithSelector((set, get) => {
     const patchConfig = (patch) => set((s) => ({ config: { ...s.config, ...patch } }))
@@ -217,6 +222,43 @@ export const useConfigurator = create(
       },
 
       // --- Presety i parametry bryły
+      // --- Historia zmian (cofnij / ponów)
+      past: [], // poprzednie konfiguracje (najnowsza na końcu)
+      future: [], // konfiguracje "do przodu" po cofnięciu
+      resetNotice: false, // komunikat z "Cofnij" po wyczyszczeniu
+      undo: () =>
+        set((s) => {
+          if (!s.past.length) return s
+          timeTravel = true
+          return {
+            config: s.past[s.past.length - 1],
+            past: s.past.slice(0, -1),
+            future: [s.config, ...s.future],
+            resetNotice: false,
+            view: { ...s.view, selectedItem: null, hoverFace: null, hoverFrame: null },
+          }
+        }),
+      redo: () =>
+        set((s) => {
+          if (!s.future.length) return s
+          timeTravel = true
+          return {
+            config: s.future[0],
+            past: [...s.past, s.config],
+            future: s.future.slice(1),
+            view: { ...s.view, selectedItem: null, hoverFace: null, hoverFrame: null },
+          }
+        }),
+
+      /** Pusta kopuła do projektowania od zera (można cofnąć) */
+      resetAll: () =>
+        set((s) => ({
+          config: sanitize({ preset: null, diameter: DIAMETER.default, frequency: 3, cover: 'pvc-white', accessories: {} }),
+          resetNotice: true,
+          view: { ...s.view, interior: false, selectedItem: null, editMode: 'none', hoverFace: null, hoverFrame: null },
+        })),
+      dismissResetNotice: () => set({ resetNotice: false }),
+
       applyPreset: (id) =>
         set((s) => ({
           config: buildPreset(id),
@@ -413,6 +455,23 @@ export const useConfigurator = create(
       topView: () => set((s) => ({ view: { ...s.view, topToken: s.view.topToken + 1, interior: true } })),
     }
   }),
+)
+
+// Zapis historii: każda zmiana konfiguracji odkłada poprzedni stan na stos "past"
+useConfigurator.subscribe(
+  (s) => s.config,
+  (config, prev) => {
+    if (timeTravel) {
+      timeTravel = false
+      lastChange = 0
+      return
+    }
+    const now = Date.now()
+    const coalesce = now - lastChange < COALESCE_MS
+    lastChange = now
+    if (coalesce) return
+    useConfigurator.setState((s) => ({ past: [...s.past, prev].slice(-HISTORY_LIMIT), future: [] }))
+  },
 )
 
 // Synchronizacja z adresem URL (bez zaśmiecania historii przeglądarki)

@@ -105,6 +105,14 @@ koloru) do stałej puli `PointLight` i `SpotLight`: 7+5 świateł na desktopie, 
 jest naprawdę oświetlona w wybranych barwach, a kolejne kliknięcia nie powodują rekompilacji shaderów ani spadków
 płynności.
 
+### Historia zmian i czyszczenie
+
+* **Cofnij / Ponów** (przyciski w podglądzie oraz Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y): historia do 80 kroków
+  w `useConfigurator` (`past` / `future`). Ciągłe zmiany, takie jak przeciąganie elementu czy przesuwanie suwaka,
+  zapisują się jako jeden krok.
+* **Wyczyść** (nagłówek panelu): po potwierdzeniu przywraca pustą kopułę 6 m / 3V bez paneli, dekoracji
+  i elementów. Tę operację też można cofnąć.
+
 ### Podmiana placeholderów na modele .glb
 
 1. Wrzuć plik do `public/models/`, np. `public/models/stove.glb`

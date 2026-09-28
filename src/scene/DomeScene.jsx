@@ -22,6 +22,13 @@ export default function DomeScene() {
     const onKey = (e) => {
       if (/input|textarea|select/i.test(e.target.tagName)) return
       const st = useConfigurator.getState()
+      // Ctrl/Cmd+Z – cofnij, Ctrl/Cmd+Shift+Z lub Ctrl+Y – ponów
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
+        e.preventDefault()
+        if (e.key === 'y' || e.shiftKey) st.redo()
+        else st.undo()
+        return
+      }
       const uid = st.view.selectedItem
       if (e.key === 'Escape') {
         if (uid) st.selectItem(null)
